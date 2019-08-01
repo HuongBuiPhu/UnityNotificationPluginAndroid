@@ -9,7 +9,7 @@ public class Example : MonoBehaviour
         n.SetDaily(1, 18, 59, 59);
         n.SetAppPackage("com.huongbp.example");
         n.SetContent("Unity Notification", "Let\'s play game now! ");
-        n.notify();
+        n.Notify();
     }
 
 }
