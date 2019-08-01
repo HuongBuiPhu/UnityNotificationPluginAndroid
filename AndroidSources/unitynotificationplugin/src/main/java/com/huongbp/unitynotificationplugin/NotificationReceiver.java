@@ -15,6 +15,8 @@ import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.PowerManager;
+import android.support.v4.app.NotificationCompat;
+import android.support.v4.app.NotificationManagerCompat;
 
 
 /**
@@ -27,8 +29,12 @@ public class NotificationReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
+
+        int typeAlarm = intent.getIntExtra(UnityPlugin.EXTRA, 0);
         Intent notifyService = new Intent(context, NotificationService.class);
+        notifyService.putExtra(UnityPlugin.EXTRA, typeAlarm);
         context.startService(notifyService);
+
         WakeDevice(context);
         createNotificationChannel(context);
         CreateNotify(context);
@@ -40,10 +46,11 @@ public class NotificationReceiver extends BroadcastReceiver {
         String text = preferences.getString("Text", "Do you have played game today?");
         String app = preferences.getString("App", null);
 
-        Bitmap icon = null;
+        Bitmap largeIcon = null;
+        int smallIcon = _c.getApplicationInfo().icon;
         try {
             Drawable ic = _c.getPackageManager().getApplicationIcon(app);
-            icon = ((BitmapDrawable) ic).getBitmap();
+            largeIcon = ((BitmapDrawable) ic).getBitmap();
         } catch (PackageManager.NameNotFoundException e) {
             e.printStackTrace();
         }
@@ -52,16 +59,17 @@ public class NotificationReceiver extends BroadcastReceiver {
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         PendingIntent pendingIntent = PendingIntent.getActivity(_c, 0, intent, 0);
 
-        Notification.Builder builder = new Notification.Builder(_c)
-                .setSmallIcon(_c.getApplicationInfo().icon)
-                .setLargeIcon(icon)
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(_c, CHANNEL_ID)
+                .setSmallIcon(smallIcon)
+                .setLargeIcon(largeIcon)
                 .setContentTitle(title)
                 .setContentText(text)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setDefaults(Notification.DEFAULT_SOUND)
                 .setContentIntent(pendingIntent)
                 .setAutoCancel(true);
 
-        NotificationManager notificationManager = (NotificationManager) _c.getSystemService(Context.NOTIFICATION_SERVICE);
+        NotificationManagerCompat notificationManager = NotificationManagerCompat.from(_c);
         notificationManager.notify(1412, builder.build());
     }
 
