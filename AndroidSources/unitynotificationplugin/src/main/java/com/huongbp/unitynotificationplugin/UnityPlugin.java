@@ -1,9 +1,14 @@
 package com.huongbp.unitynotificationplugin;
 
 import android.app.Activity;
+import android.app.AlarmManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.os.Build;
+
+import java.util.Calendar;
 
 /**
  * Created by HuongBP on 31/7/2019.
@@ -11,6 +16,7 @@ import android.content.SharedPreferences;
  */
 
 public class UnityPlugin {
+
     public static final String PLAYER_PREF = "Notify";
 
     public static final String EXTRA = "Plugin";
@@ -21,15 +27,15 @@ public class UnityPlugin {
     public static final int FLAG_ADD_SECOND = 4;
 
     private int alarmType;
+    private AlarmManager alarmManager;
+    private PendingIntent pendingIntent;
 
     public UnityPlugin() {
         alarmType = FLAG_DAILY;
     }
 
     public void CreateNotificationService(Activity game) {
-        Intent notifyService = new Intent(game, NotificationService.class);
-        notifyService.putExtra(EXTRA, alarmType);
-        game.startService(notifyService);
+        StartAlarmDaily(game, alarmType);
     }
 
     public void SetNotificationContent(Activity game, String _title, String _text) {
@@ -89,6 +95,56 @@ public class UnityPlugin {
                 break;
         }
         editor.commit();
+    }
+
+    private void StartAlarmDaily(Activity _c, int _type) {
+        alarmManager = (AlarmManager) _c.getSystemService(Context.ALARM_SERVICE);
+        Intent intent = new Intent(_c, NotificationReceiver.class);
+        intent.putExtra(UnityPlugin.EXTRA, _type);
+        pendingIntent = PendingIntent.getBroadcast(_c, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+
+        Calendar calendar = Calendar.getInstance();
+        SetCalendar(_c, calendar, _type);
+
+        alarmManager.cancel(pendingIntent);
+        alarmManager.setRepeating(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), AlarmManager.INTERVAL_DAY, pendingIntent);
+    }
+
+    private void SetCalendar(Activity _c, Calendar calendar, int _type) {
+        SharedPreferences preferences = _c.getSharedPreferences(UnityPlugin.PLAYER_PREF, Context.MODE_PRIVATE);
+        int day;
+        int hour;
+        int minute;
+        int second;
+        switch (_type) {
+            case UnityPlugin.FLAG_DAILY:
+                day = preferences.getInt("Day", 1);
+                hour = preferences.getInt("Hour", 18);
+                minute = preferences.getInt("Minute", 59);
+                second = preferences.getInt("Second", 59);
+
+                calendar.set(Calendar.HOUR_OF_DAY, hour);
+                calendar.set(Calendar.MINUTE, minute);
+                calendar.set(Calendar.SECOND, second);
+                calendar.add(Calendar.DATE, day);
+                break;
+            case UnityPlugin.FLAG_ADD_DAY:
+                day = preferences.getInt("DayAdd", 1);
+                calendar.add(Calendar.DATE, day);
+                break;
+            case UnityPlugin.FLAG_ADD_HOUR:
+                hour = preferences.getInt("HourAdd", 1);
+                calendar.add(Calendar.HOUR_OF_DAY, hour);
+                break;
+            case UnityPlugin.FLAG_ADD_MINUTE:
+                minute = preferences.getInt("MinuteAdd", 1);
+                calendar.add(Calendar.MINUTE, minute);
+                break;
+            case UnityPlugin.FLAG_ADD_SECOND:
+                second = preferences.getInt("SecondAdd", 1);
+                calendar.add(Calendar.SECOND, second);
+                break;
+        }
     }
 
 }

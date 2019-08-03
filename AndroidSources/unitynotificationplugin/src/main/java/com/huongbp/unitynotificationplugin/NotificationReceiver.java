@@ -1,6 +1,7 @@
 package com.huongbp.unitynotificationplugin;
 
 import android.annotation.SuppressLint;
+import android.app.AlarmManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -16,8 +17,7 @@ import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.PowerManager;
 
-import androidx.core.app.NotificationCompat;
-import androidx.core.app.NotificationManagerCompat;
+import java.util.Calendar;
 
 
 /**
@@ -26,19 +26,26 @@ import androidx.core.app.NotificationManagerCompat;
  */
 public class NotificationReceiver extends BroadcastReceiver {
 
-    private static final String CHANNEL_ID = "HUONGBP";
+    public static final String CHANNEL_ID = "HUONGBP";
+
+    private Notification.Builder builder;
+    private NotificationManager manager;
+
+    private AlarmManager alarmManager;
+    private PendingIntent pendingIntent;
 
     @Override
     public void onReceive(Context context, Intent intent) {
 
-        int typeAlarm = intent.getIntExtra(UnityPlugin.EXTRA, 0);
-        Intent notifyService = new Intent(context, NotificationService.class);
-        notifyService.putExtra(UnityPlugin.EXTRA, typeAlarm);
-        context.startService(notifyService);
-
+        builder = new Notification.Builder(context);
+        manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         WakeDevice(context);
-        createNotificationChannel(context);
+        CreateNotificationChannel();
         CreateNotify(context);
+
+        int typeAlarm = intent.getIntExtra(UnityPlugin.EXTRA, 0);
+        StartAlarmDaily(context, typeAlarm);
+
     }
 
     private void CreateNotify(Context _c) {
@@ -60,29 +67,30 @@ public class NotificationReceiver extends BroadcastReceiver {
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         PendingIntent pendingIntent = PendingIntent.getActivity(_c, 0, intent, 0);
 
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(_c, CHANNEL_ID)
-                .setSmallIcon(smallIcon)
-                .setLargeIcon(largeIcon)
-                .setContentTitle(title)
-                .setContentText(text)
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setDefaults(Notification.DEFAULT_SOUND)
-                .setContentIntent(pendingIntent)
-                .setAutoCancel(true);
+        if (Build.VERSION.SDK_INT >= 21)
+            builder.setVisibility(Notification.VISIBILITY_PUBLIC);
 
-        NotificationManagerCompat notificationManager = NotificationManagerCompat.from(_c);
-        notificationManager.notify(1412, builder.build());
+        builder.setSmallIcon(smallIcon);
+        builder.setLargeIcon(largeIcon);
+        builder.setContentTitle(title);
+        builder.setContentText(text);
+        builder.setPriority(Notification.PRIORITY_HIGH);
+        builder.setDefaults(Notification.DEFAULT_SOUND);
+        builder.setContentIntent(pendingIntent);
+        builder.setAutoCancel(true);
+
+        manager.notify(1412, builder.build());
     }
 
-    private void createNotificationChannel(Context _c) {
+    private void CreateNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             CharSequence name = "Unity";
             String description = "Unity notification channel";
             int importance = NotificationManager.IMPORTANCE_HIGH;
             NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
             channel.setDescription(description);
-            NotificationManager notificationManager = _c.getSystemService(NotificationManager.class);
-            notificationManager.createNotificationChannel(channel);
+            builder.setChannelId(CHANNEL_ID);
+            manager.createNotificationChannel(channel);
         }
     }
 
@@ -95,4 +103,55 @@ public class NotificationReceiver extends BroadcastReceiver {
             wl.acquire(3000);
         }
     }
+
+    private void StartAlarmDaily(Context _c, int _type) {
+        alarmManager = (AlarmManager) _c.getSystemService(Context.ALARM_SERVICE);
+        Intent intent = new Intent(_c, NotificationReceiver.class);
+        intent.putExtra(UnityPlugin.EXTRA, _type);
+        pendingIntent = PendingIntent.getBroadcast(_c, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+
+        Calendar calendar = Calendar.getInstance();
+        SetCalendar(_c, calendar, _type);
+
+        alarmManager.cancel(pendingIntent);
+        alarmManager.setRepeating(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), AlarmManager.INTERVAL_DAY, pendingIntent);
+    }
+
+    private void SetCalendar(Context _c, Calendar calendar, int _type) {
+        SharedPreferences preferences = _c.getSharedPreferences(UnityPlugin.PLAYER_PREF, Context.MODE_PRIVATE);
+        int day;
+        int hour;
+        int minute;
+        int second;
+        switch (_type) {
+            case UnityPlugin.FLAG_DAILY:
+                day = preferences.getInt("Day", 1);
+                hour = preferences.getInt("Hour", 18);
+                minute = preferences.getInt("Minute", 59);
+                second = preferences.getInt("Second", 59);
+
+                calendar.set(Calendar.HOUR_OF_DAY, hour);
+                calendar.set(Calendar.MINUTE, minute);
+                calendar.set(Calendar.SECOND, second);
+                calendar.add(Calendar.DATE, day);
+                break;
+            case UnityPlugin.FLAG_ADD_DAY:
+                day = preferences.getInt("DayAdd", 1);
+                calendar.add(Calendar.DATE, day);
+                break;
+            case UnityPlugin.FLAG_ADD_HOUR:
+                hour = preferences.getInt("HourAdd", 1);
+                calendar.add(Calendar.HOUR_OF_DAY, hour);
+                break;
+            case UnityPlugin.FLAG_ADD_MINUTE:
+                minute = preferences.getInt("MinuteAdd", 1);
+                calendar.add(Calendar.MINUTE, minute);
+                break;
+            case UnityPlugin.FLAG_ADD_SECOND:
+                second = preferences.getInt("SecondAdd", 1);
+                calendar.add(Calendar.SECOND, second);
+                break;
+        }
+    }
+
 }

@@ -24,10 +24,6 @@
       <meta-data android:name="unityplayer.UnityActivity" android:value="true" />
     </activity>
     <receiver android:name="com.huongbp.unitynotificationplugin.NotificationReceiver"></receiver>
-    <service
-              android:name="com.huongbp.unitynotificationplugin.NotificationService"
-              android:enabled="true"
-              android:exported="true"></service>
   </application>
 
   <uses-permission android:name="android.permission.WAKE_LOCK" />
